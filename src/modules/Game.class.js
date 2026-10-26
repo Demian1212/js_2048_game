@@ -1,294 +1,95 @@
-export class Game {
-  /**
-   * @param {number[][]} [initialState] - опціональний початковий стан поля 4x4
-   */
-  constructor(initialState) {
-    this.size = 4;
-    this.score = 0;
-    this.status = 'idle'; // 'idle', 'playing', 'win', 'lose'
+import { Game } from '../modules/Game.class.js';
 
-    if (initialState && Array.isArray(initialState)) {
-      this.board = initialState.map((row) => [...row]);
+const game = new Game();
+
+const boardElement = document.getElementById('board');
+const scoreElement = document.getElementById('score');
+const statusMessageElement = document.getElementById('status-message');
+const startBtn = document.getElementById('start-btn');
+
+function render() {
+  const board = game.getState();
+  const score = game.getScore();
+  const gameStatus = game.getStatus();
+
+  if (scoreElement) {
+    scoreElement.textContent = score;
+  }
+
+  if (boardElement) {
+    boardElement.innerHTML = '';
+
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const cellValue = board[r][c];
+        const cellDiv = document.createElement('div');
+
+        cellDiv.className = `cell cell-${cellValue}`;
+        cellDiv.textContent = cellValue > 0 ? cellValue : '';
+        boardElement.appendChild(cellDiv);
+      }
+    }
+  }
+
+  if (statusMessageElement) {
+    if (gameStatus === 'win') {
+      statusMessageElement.textContent = 'Вітаємо! Ви зібрали 2048!';
+      statusMessageElement.className = 'status-message win';
+    } else if (gameStatus === 'lose') {
+      statusMessageElement.textContent = 'Гра закінчена! Немає можливих ходів.';
+      statusMessageElement.className = 'status-message lose';
+    } else if (gameStatus === 'playing') {
+      statusMessageElement.textContent = 'Гра триває...';
+      statusMessageElement.className = 'status-message playing';
     } else {
-      this.board = this.createEmptyBoard();
+      statusMessageElement.textContent = 'Натисніть "Start", щоб почати гру!';
+      statusMessageElement.className = 'status-message idle';
     }
-  }
-
-  createEmptyBoard() {
-    return Array.from({ length: this.size }, () => Array(this.size).fill(0));
-  }
-
-  getState() {
-    return this.board.map((row) => [...row]);
-  }
-
-  getScore() {
-    return this.score;
-  }
-
-  getStatus() {
-    return this.status;
-  }
-
-  start() {
-    this.board = this.createEmptyBoard();
-    this.score = 0;
-    this.status = 'playing';
-
-    // Додаємо дві початкові плитки
-    this.addRandomTile();
-    this.addRandomTile();
-  }
-
-  restart() {
-    this.start();
-  }
-
-  addRandomTile() {
-    const emptyCells = [];
-
-    for (let r = 0; r < this.size; r++) {
-      for (let c = 0; c < this.size; c++) {
-        if (this.board[r][c] === 0) {
-          emptyCells.push({ r, c });
-        }
-      }
-    }
-
-    if (emptyCells.length === 0) {
-      return;
-    }
-
-    const randomIndex = Math.floor(Math.random() * emptyCells.length);
-
-    // Виправлено: прибрано повторне оголошення let/const для r та c
-    ({ r: this.targetR, c: this.targetC } = emptyCells[randomIndex]);
-
-    // 90% шанс для 2, 10% шанс для 4
-    this.board[this.targetR][this.targetC] = Math.random() < 0.9 ? 2 : 4;
-  }
-
-  // --- Логіка руху ---
-
-  /**
-   * Обробляє один рядок вліво з урахуванням
-   * обмеження "одне злиття на плитку за хід"
-   * @param {number[]} row
-   * @returns {{ newRow: number[], scoreGained: number, hasMerged: boolean }}
-   */
-  slideAndMergeRow(row) {
-    // 1. Видаляємо нулі
-    const nonZero = row.filter((val) => val !== 0);
-    const newRow = [];
-    let scoreGained = 0;
-
-    let i = 0;
-
-    while (i < nonZero.length) {
-      if (i + 1 < nonZero.length && nonZero[i] === nonZero[i + 1]) {
-        // Злиття
-        const mergedVal = nonZero[i] * 2;
-
-        newRow.push(mergedVal);
-        scoreGained += mergedVal;
-        i += 2; // Пропускаємо обидві злиті плитки
-      } else {
-        newRow.push(nonZero[i]);
-        i++;
-      }
-    }
-
-    // 2. Доповнюємо нулями до розміру 4
-    while (newRow.length < this.size) {
-      newRow.push(0);
-    }
-
-    return { newRow, scoreGained };
-  }
-
-  moveLeft() {
-    if (this.status !== 'playing') {
-      return false;
-    }
-
-    let moved = false;
-
-    for (let r = 0; r < this.size; r++) {
-      const currentRow = this.board[r];
-      const { newRow, scoreGained } = this.slideAndMergeRow(currentRow);
-
-      // Перевіряємо, чи змінився рядок
-      if (currentRow.some((val, idx) => val !== newRow[idx])) {
-        moved = true;
-      }
-
-      this.board[r] = newRow;
-      this.score += scoreGained;
-    }
-
-    if (moved) {
-      this.afterMove();
-    }
-
-    return moved;
-  }
-
-  moveRight() {
-    if (this.status !== 'playing') {
-      return false;
-    }
-
-    let moved = false;
-
-    for (let r = 0; r < this.size; r++) {
-      // Реверсуємо рядок, рухаємо вліво,
-      // потім знову реверсуємо
-      const reversedRow = [...this.board[r]].reverse();
-      const { newRow, scoreGained } = this.slideAndMergeRow(reversedRow);
-      const finalRow = newRow.reverse();
-
-      if (this.board[r].some((val, idx) => val !== finalRow[idx])) {
-        moved = true;
-      }
-
-      this.board[r] = finalRow;
-      this.score += scoreGained;
-    }
-
-    if (moved) {
-      this.afterMove();
-    }
-
-    return moved;
-  }
-
-  moveUp() {
-    if (this.status !== 'playing') {
-      return false;
-    }
-
-    let moved = false;
-
-    for (let c = 0; c < this.size; c++) {
-      // Формуємо колонку як масив
-      const col = [];
-
-      for (let r = 0; r < this.size; r++) {
-        col.push(this.board[r][c]);
-      }
-
-      const { newRow: newCol, scoreGained } = this.slideAndMergeRow(col);
-
-      for (let r = 0; r < this.size; r++) {
-        if (this.board[r][c] !== newCol[r]) {
-          moved = true;
-        }
-        this.board[r][c] = newCol[r];
-      }
-
-      this.score += scoreGained;
-    }
-
-    if (moved) {
-      this.afterMove();
-    }
-
-    return moved;
-  }
-
-  moveDown() {
-    if (this.status !== 'playing') {
-      return false;
-    }
-
-    let moved = false;
-
-    for (let c = 0; c < this.size; c++) {
-      const col = [];
-
-      for (let r = 0; r < this.size; r++) {
-        col.push(this.board[r][c]);
-      }
-
-      const reversedCol = col.reverse();
-      const { newRow, scoreGained } = this.slideAndMergeRow(reversedCol);
-      const finalCol = newRow.reverse();
-
-      for (let r = 0; r < this.size; r++) {
-        if (this.board[r][c] !== finalCol[r]) {
-          moved = true;
-        }
-        this.board[r][c] = finalCol[r];
-      }
-
-      this.score += scoreGained;
-    }
-
-    if (moved) {
-      this.afterMove();
-    }
-
-    return moved;
-  }
-
-  // --- Перевірки стану після успішного ходу ---
-
-  afterMove() {
-    // 1. Додаємо нову плитку
-    this.addRandomTile();
-
-    // 2. Перевірка на перемогу (наявність 2048)
-    if (this.hasWinTile()) {
-      this.status = 'win';
-
-      return;
-    }
-
-    // 3. Перевірка на поразку (немає ходів)
-    if (!this.canMove()) {
-      this.status = 'lose';
-    }
-  }
-
-  hasWinTile() {
-    for (let r = 0; r < this.size; r++) {
-      for (let c = 0; c < this.size; c++) {
-        if (this.board[r][c] >= 2048) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  canMove() {
-    // Якщо є хоч одна порожня клітинка — хід можливий
-    for (let r = 0; r < this.size; r++) {
-      for (let c = 0; c < this.size; c++) {
-        if (this.board[r][c] === 0) {
-          return true;
-        }
-      }
-    }
-
-    // Перевірка суміжних клітинок на однакові значення
-    for (let r = 0; r < this.size; r++) {
-      for (let c = 0; c < this.size; c++) {
-        const val = this.board[r][c];
-
-        // Сусід праворуч
-        if (c + 1 < this.size && this.board[r][c + 1] === val) {
-          return true;
-        }
-
-        // Сусід знизу
-        if (r + 1 < this.size && this.board[r + 1][c] === val) {
-          return true;
-        }
-      }
-    }
-
-    return false;
   }
 }
+
+document.addEventListener('keydown', (e) => {
+  if (game.getStatus() !== 'playing') {
+    return;
+  }
+
+  let moved = false;
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      moved = game.moveLeft();
+      break;
+    case 'ArrowRight':
+      moved = game.moveRight();
+      break;
+    case 'ArrowUp':
+      moved = game.moveUp();
+      break;
+    case 'ArrowDown':
+      moved = game.moveDown();
+      break;
+    default:
+      return;
+  }
+
+  if (moved) {
+    e.preventDefault();
+    render();
+  }
+});
+
+if (startBtn) {
+  startBtn.addEventListener('click', () => {
+    if (game.getStatus() === 'idle') {
+      game.start();
+      startBtn.textContent = 'Restart';
+    } else {
+      game.restart();
+    }
+    render();
+  });
+}
+
+render();
+
+startBtn.addEventListener;
