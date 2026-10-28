@@ -1,25 +1,18 @@
 export class Game {
-  /**
-   * @param {number[][]} [initialState] - опціональний початковий стан поля 4x4
-   */
-  constructor(initialState) {
-    this.size = 4;
+  constructor(initialState = null) {
+    this.board = initialState
+      ? JSON.parse(JSON.stringify(initialState))
+      : Array(4)
+        .fill(0)
+        .map(() => Array(4).fill(0));
+
     this.score = 0;
     this.status = 'idle'; // 'idle', 'playing', 'win', 'lose'
-
-    if (initialState && Array.isArray(initialState)) {
-      this.board = initialState.map((row) => [...row]);
-    } else {
-      this.board = this.createEmptyBoard();
-    }
-  }
-
-  createEmptyBoard() {
-    return Array.from({ length: this.size }, () => Array(this.size).fill(0));
+    this.hasWon = false;
   }
 
   getState() {
-    return this.board.map((row) => [...row]);
+    return this.board;
   }
 
   getScore() {
@@ -31,264 +24,209 @@ export class Game {
   }
 
   start() {
-    this.board = this.createEmptyBoard();
-    this.score = 0;
-    this.status = 'playing';
+    if (this.status === 'idle') {
+      this.status = 'playing';
 
-    // Додаємо дві початкові плитки
-    this.addRandomTile();
-    this.addRandomTile();
+      this.board = Array(4)
+        .fill(0)
+        .map(() => Array(4).fill(0));
+      this.score = 0;
+      this.hasWon = false;
+      this.addRandomTile();
+      this.addRandomTile();
+    }
   }
 
   restart() {
-    this.start();
+    this.status = 'playing';
+
+    this.board = Array(4)
+      .fill(0)
+      .map(() => Array(4).fill(0));
+    this.score = 0;
+    this.hasWon = false;
+    this.addRandomTile();
+    this.addRandomTile();
   }
 
   addRandomTile() {
     const emptyCells = [];
 
-    for (let r = 0; r < this.size; r++) {
-      for (let c = 0; c < this.size; c++) {
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
         if (this.board[r][c] === 0) {
           emptyCells.push({ r, c });
         }
       }
     }
 
-    if (emptyCells.length === 0) {
-      return;
+    if (emptyCells.length > 0) {
+      const { r, c } =
+        emptyCells[Math.floor(Math.random() * emptyCells.length)];
+
+      // 90% ймовірність для 2, 10% для 4
+      this.board[r][c] = Math.random() < 0.9 ? 2 : 4;
     }
-
-    const randomIndex = Math.floor(Math.random() * emptyCells.length);
-
-    // Виправлено: прибрано повторне оголошення let/const для r та c
-    ({ r: this.targetR, c: this.targetC } = emptyCells[randomIndex]);
-
-    // 90% шанс для 2, 10% шанс для 4
-    this.board[this.targetR][this.targetC] = Math.random() < 0.9 ? 2 : 4;
   }
 
-  // --- Логіка руху ---
-
-  /**
-   * Обробляє один рядок вліво з урахуванням
-   * обмеження "одне злиття на плитку за хід"
-   * @param {number[]} row
-   * @returns {{ newRow: number[], scoreGained: number, hasMerged: boolean }}
-   */
-  slideAndMergeRow(row) {
-    // 1. Видаляємо нулі
-    const nonZero = row.filter((val) => val !== 0);
+  // Допоміжна функція для зсуву та злиття одного рядка вліво
+  slideLeft(row) {
+    const arr = row.filter((val) => val !== 0);
+    let points = 0;
     const newRow = [];
-    let scoreGained = 0;
 
-    let i = 0;
-
-    while (i < nonZero.length) {
-      if (i + 1 < nonZero.length && nonZero[i] === nonZero[i + 1]) {
-        // Злиття
-        const mergedVal = nonZero[i] * 2;
+    for (let i = 0; i < arr.length; i++) {
+      if (i < arr.length - 1 && arr[i] === arr[i + 1]) {
+        const mergedVal = arr[i] * 2;
 
         newRow.push(mergedVal);
-        scoreGained += mergedVal;
-        i += 2; // Пропускаємо обидві злиті плитки
+        points += mergedVal;
+        i++; // пропуск наступного, оскільки він злився
+
+        if (mergedVal === 2048 && !this.hasWon) {
+          this.hasWon = true;
+          this.status = 'win';
+        }
       } else {
-        newRow.push(nonZero[i]);
-        i++;
+        newRow.push(arr[i]);
       }
     }
 
-    // 2. Доповнюємо нулями до розміру 4
-    while (newRow.length < this.size) {
+    while (newRow.length < 4) {
       newRow.push(0);
     }
 
-    return { newRow, scoreGained };
+    return { newRow, points };
   }
 
-  moveLeft() {
-    if (this.status !== 'playing') {
-      return false;
-    }
+  // Поворот матриці на 90 градусів за годинниковою стрілкою
+  rotateClockwise(matrix) {
+    const res = Array(4)
+      .fill(0)
+      .map(() => Array(4).fill(0));
 
-    let moved = false;
-
-    for (let r = 0; r < this.size; r++) {
-      const currentRow = this.board[r];
-      const { newRow, scoreGained } = this.slideAndMergeRow(currentRow);
-
-      // Перевіряємо, чи змінився рядок
-      if (currentRow.some((val, idx) => val !== newRow[idx])) {
-        moved = true;
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        res[c][3 - r] = matrix[r][c];
       }
-
-      this.board[r] = newRow;
-      this.score += scoreGained;
     }
 
-    if (moved) {
-      this.afterMove();
-    }
-
-    return moved;
+    return res;
   }
 
-  moveRight() {
-    if (this.status !== 'playing') {
-      return false;
-    }
-
-    let moved = false;
-
-    for (let r = 0; r < this.size; r++) {
-      // Реверсуємо рядок, рухаємо вліво,
-      // потім знову реверсуємо
-      const reversedRow = [...this.board[r]].reverse();
-      const { newRow, scoreGained } = this.slideAndMergeRow(reversedRow);
-      const finalRow = newRow.reverse();
-
-      if (this.board[r].some((val, idx) => val !== finalRow[idx])) {
-        moved = true;
-      }
-
-      this.board[r] = finalRow;
-      this.score += scoreGained;
-    }
-
-    if (moved) {
-      this.afterMove();
-    }
-
-    return moved;
-  }
-
-  moveUp() {
-    if (this.status !== 'playing') {
-      return false;
-    }
-
-    let moved = false;
-
-    for (let c = 0; c < this.size; c++) {
-      // Формуємо колонку як масив
-      const col = [];
-
-      for (let r = 0; r < this.size; r++) {
-        col.push(this.board[r][c]);
-      }
-
-      const { newRow: newCol, scoreGained } = this.slideAndMergeRow(col);
-
-      for (let r = 0; r < this.size; r++) {
-        if (this.board[r][c] !== newCol[r]) {
-          moved = true;
+  // Перевірка чи змінилося поле після руху
+  isBoardChanged(oldBoard, newBoard) {
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        if (oldBoard[r][c] !== newBoard[r][c]) {
+          return true;
         }
-        this.board[r][c] = newCol[r];
       }
-
-      this.score += scoreGained;
     }
 
-    if (moved) {
-      this.afterMove();
-    }
-
-    return moved;
+    return false;
   }
 
-  moveDown() {
-    if (this.status !== 'playing') {
-      return false;
-    }
-
-    let moved = false;
-
-    for (let c = 0; c < this.size; c++) {
-      const col = [];
-
-      for (let r = 0; r < this.size; r++) {
-        col.push(this.board[r][c]);
-      }
-
-      const reversedCol = col.reverse();
-      const { newRow, scoreGained } = this.slideAndMergeRow(reversedCol);
-      const finalCol = newRow.reverse();
-
-      for (let r = 0; r < this.size; r++) {
-        if (this.board[r][c] !== finalCol[r]) {
-          moved = true;
-        }
-        this.board[r][c] = finalCol[r];
-      }
-
-      this.score += scoreGained;
-    }
-
-    if (moved) {
-      this.afterMove();
-    }
-
-    return moved;
-  }
-
-  // --- Перевірки стану після успішного ходу ---
-
-  afterMove() {
-    // 1. Додаємо нову плитку
-    this.addRandomTile();
-
-    // 2. Перевірка на перемогу (наявність 2048)
-    if (this.hasWinTile()) {
-      this.status = 'win';
-
+  // Загальна логіка виконання ходу
+  makeMove(moveFunction) {
+    if (this.status !== 'playing' && this.status !== 'win') {
       return;
     }
 
-    // 3. Перевірка на поразку (немає ходів)
-    if (!this.canMove()) {
-      this.status = 'lose';
-    }
-  }
+    const oldBoard = JSON.parse(JSON.stringify(this.board));
 
-  hasWinTile() {
-    for (let r = 0; r < this.size; r++) {
-      for (let c = 0; c < this.size; c++) {
-        if (this.board[r][c] >= 2048) {
-          return true;
-        }
+    moveFunction.call(this);
+
+    if (this.isBoardChanged(oldBoard, this.board)) {
+      this.addRandomTile();
+
+      if (this.checkGameOver()) {
+        this.status = 'lose';
       }
     }
-
-    return false;
   }
 
-  canMove() {
-    // Якщо є хоч одна порожня клітинка — хід можливий
-    for (let r = 0; r < this.size; r++) {
-      for (let c = 0; c < this.size; c++) {
+  moveLeft() {
+    this.makeMove(() => {
+      for (let r = 0; r < 4; r++) {
+        const { newRow, points } = this.slideLeft(this.board[r]);
+
+        this.board[r] = newRow;
+        this.score += points;
+      }
+    });
+  }
+
+  moveRight() {
+    this.makeMove(() => {
+      for (let r = 0; r < 4; r++) {
+        const reversed = [...this.board[r]].reverse();
+        const { newRow, points } = this.slideLeft(reversed);
+
+        this.board[r] = newRow.reverse();
+        this.score += points;
+      }
+    });
+  }
+
+  moveUp() {
+    this.makeMove(() => {
+      const matrix = this.rotateClockwise(
+        this.rotateClockwise(this.rotateClockwise(this.board)),
+      );
+
+      for (let r = 0; r < 4; r++) {
+        const { newRow, points } = this.slideLeft(matrix[r]);
+
+        matrix[r] = newRow;
+        this.score += points;
+      }
+      this.board = this.rotateClockwise(matrix);
+    });
+  }
+
+  moveDown() {
+    this.makeMove(() => {
+      const matrix = this.rotateClockwise(this.board);
+
+      for (let r = 0; r < 4; r++) {
+        const { newRow, points } = this.slideLeft(matrix[r]);
+
+        matrix[r] = newRow;
+        this.score += points;
+      }
+
+      this.board = this.rotateClockwise(
+        this.rotateClockwise(this.rotateClockwise(matrix)),
+      );
+    });
+  }
+
+  checkGameOver() {
+    // Якщо є хоч одна нульова клітинка — гра не закінчена
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
         if (this.board[r][c] === 0) {
-          return true;
+          return false;
         }
       }
     }
 
-    // Перевірка суміжних клітинок на однакові значення
-    for (let r = 0; r < this.size; r++) {
-      for (let c = 0; c < this.size; c++) {
-        const val = this.board[r][c];
+    // Перевірка чи є сусідні однакові елементи по горизонталі та вертикалі
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const current = this.board[r][c];
 
-        // Сусід праворуч
-        if (c + 1 < this.size && this.board[r][c + 1] === val) {
-          return true;
+        if (c < 3 && current === this.board[r][c + 1]) {
+          return false;
         }
 
-        // Сусід знизу
-        if (r + 1 < this.size && this.board[r + 1][c] === val) {
-          return true;
+        if (r < 3 && current === this.board[r + 1][c]) {
+          return false;
         }
       }
     }
 
-    return false;
+    return true;
   }
 }
