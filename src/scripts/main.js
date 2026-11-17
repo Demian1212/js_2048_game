@@ -1,389 +1,99 @@
 'use strict';
 
-const DIRECTION_UP = 'ArrowUp';
-const DIRECTION_DOWN = 'ArrowDown';
-const DIRECTION_LEFT = 'ArrowLeft';
-const DIRECTION_RIGHT = 'ArrowRight';
+import { Game } from '../modules/Game.class.js';
 
-let board = [];
-let score = 0;
-let wonGame = false;
+const game = new Game();
 
-const tileContainer = document.querySelector('.tileContainer');
-const scoreElement = document.getElementById('scoreElement');
-const alertElement = document.getElementById('alert');
+const boardElement = document.getElementById('board');
+const scoreElement = document.querySelector('.game-score');
+const statusElement = document.getElementById('status-message');
+const startButton = document.getElementById('start-btn');
 
-document.getElementById('newGame').addEventListener('click', startNewGame);
+function renderBoard() {
+  const state = game.getState();
 
-createBoard();
-addRandomTile();
-addRandomTile();
+  boardElement.innerHTML = '';
 
-function createBoard() {
-  for (let i = 0; i < 4; i++) {
-    const row = [];
+  for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
+    for (let colIndex = 0; colIndex < 4; colIndex++) {
+      const value = state[rowIndex][colIndex];
+      const cell = document.createElement('div');
 
-    for (let j = 0; j < 4; j++) {
-      row.push(0);
-    }
+      cell.classList.add('field-cell');
 
-    board.push(row);
-  }
-}
-
-function startNewGame() {
-  alertElement.style.display = 'none';
-  tileContainer.innerHTML = '';
-  scoreElement.innerHTML = 0;
-
-  board = [];
-  score = 0;
-  wonGame = false;
-  window.addEventListener('keydown', onDirectionKeyPress);
-
-  createBoard();
-  addRandomTile();
-  addRandomTile();
-}
-
-function continuePlaying() {
-  alertElement.style.display = 'none';
-  window.addEventListener('keydown', onDirectionKeyPress);
-}
-
-window.addEventListener('keydown', onDirectionKeyPress);
-
-function onDirectionKeyPress(argument) {
-  let movePossible;
-
-  switch (argument.key) {
-    case DIRECTION_UP:
-      movePossible = moveTiles(1, 0);
-      break;
-
-    case DIRECTION_DOWN:
-      movePossible = moveTiles(-1, 0);
-      break;
-
-    case DIRECTION_LEFT:
-      movePossible = moveTiles(0, -1);
-      break;
-
-    case DIRECTION_RIGHT:
-      movePossible = moveTiles(0, 1);
-      break;
-  }
-
-  if (movePossible) {
-    addRandomTile();
-
-    const gameOver = isGameOver();
-
-    if (gameOver.gameOver) {
-      showAlert(gameOver.message);
-    }
-  }
-}
-
-function isWithinBounds(index, step, limit) {
-  return (index <= limit && step === 1) || (index >= 0 && step === -1);
-}
-
-function moveTiles(directionY, directionX) {
-  let movePossible = false;
-  let mergedRecently = false;
-
-  if (directionX !== 0) {
-    const startX = directionX === 1 ? 3 : 0;
-    const stepX = directionX === 1 ? -1 : 1;
-
-    for (let i = 0; i < 4; i++) {
-      let j = startX;
-
-      while (isWithinBounds(j, stepX, 3)) {
-        if (board[i][j] === 0) {
-          j += stepX;
-          continue;
-        }
-
-        const destination = getDestinationSquare(i, j, 0, directionX);
-        const tileClass = '.row' + (i + 1) + '.column' + (j + 1);
-        const tile = document.querySelector(tileClass);
-
-        if (!destination.merge || (destination.merge && mergedRecently)) {
-          mergedRecently = false;
-          destination.destinationX += destination.merge ? stepX : 0;
-          board[i][destination.destinationX] = board[i][j];
-
-          if (destination.destinationX !== j) {
-            movePossible = true;
-            board[i][j] = 0;
-          }
-          moveTileOnPage(i, destination.destinationX, tile, false);
-          j += stepX;
-          continue;
-        }
-
-        mergedRecently = true;
-
-        board[i][destination.destinationX] = board[i][j] * 2;
-        score += board[i][destination.destinationX];
-        scoreElement.innerHTML = score;
-        movePossible = true;
-        board[i][j] = 0;
-
-        moveTileOnPage(i, destination.destinationX, tile, destination.merge);
-        j += stepX;
+      if (value !== 0) {
+        cell.classList.add(`field-cell--${value}`);
+        cell.textContent = value;
       }
-    }
-  } else if (directionY !== 0) {
-    const startY = directionY === 1 ? 3 : 0;
-    const stepY = directionY === 1 ? -1 : 1;
 
-    for (let j = 0; j < 4; j++) {
-      let i = startY;
-
-      while (isWithinBounds(i, stepY, 3)) {
-        if (board[i][j] === 0) {
-          i += stepY;
-          continue;
-        }
-
-        const destination = getDestinationSquare(i, j, directionY, 0);
-        const tileClass = '.row' + (i + 1) + '.column' + (j + 1);
-        const tile = document.querySelector(tileClass);
-
-        if (!destination.merge || (destination.merge && mergedRecently)) {
-          mergedRecently = false;
-          destination.destinationY += destination.merge ? stepY : 0;
-          board[destination.destinationY][j] = board[i][j];
-
-          if (destination.destinationY !== i) {
-            movePossible = true;
-            board[i][j] = 0;
-          }
-          moveTileOnPage(destination.destinationY, j, tile, false);
-          i += stepY;
-          continue;
-        }
-
-        mergedRecently = true;
-
-        board[destination.destinationY][j] = board[i][j] * 2;
-        score += board[destination.destinationY][j];
-        scoreElement.innerHTML = score;
-        movePossible = true;
-        board[i][j] = 0;
-
-        moveTileOnPage(destination.destinationY, j, tile, destination.merge);
-        i += stepY;
-      }
+      boardElement.append(cell);
     }
   }
-
-  return movePossible;
 }
 
-function shouldContinue(direction, current, limit, merge) {
-  return (
-    (direction === 1 && current < limit && !merge) ||
-    (direction === -1 && current > 0 && !merge)
-  );
+function updateScore() {
+  scoreElement.textContent = game.getScore();
 }
 
-function getDestinationSquare(i, j, directionY, directionX) {
-  let destinationY = i;
-  let destinationX = j;
-  let merge = false;
+function updateStatus() {
+  const currentStatus = game.getStatus();
 
-  while (
-    shouldContinue(directionY, destinationY, 3, merge) ||
-    shouldContinue(directionX, destinationX, 3, merge)
-  ) {
-    const nextY = destinationY + directionY;
-    const nextX = destinationX + directionX;
-    const nextCell = board[nextY][nextX];
-    const currentCell = board[i][j];
-
-    if (merge) {
-      break;
-    }
-
-    if (nextCell === 0 || nextCell === currentCell) {
-      destinationY = nextY;
-      destinationX = nextX;
-      merge = nextCell === currentCell;
-    } else if (nextCell !== 0 && nextCell !== currentCell) {
-      break;
-    }
+  if (currentStatus === 'idle') {
+    statusElement.className = 'message hidden';
+  } else if (currentStatus === 'playing') {
+    statusElement.className = 'message hidden';
+  } else if (currentStatus === 'win') {
+    statusElement.textContent = 'You win! Restart the game?';
+    statusElement.className = 'message message-win';
+  } else if (currentStatus === 'lose') {
+    statusElement.textContent = 'You lose! Restart the game?';
+    statusElement.className = 'message message-lose';
   }
 
-  return {
-    merge,
-    destinationY,
-    destinationX,
+  startButton.textContent = currentStatus === 'idle' ? 'Start' : 'Restart';
+  startButton.classList.toggle('start', currentStatus === 'idle');
+  startButton.classList.toggle('restart', currentStatus !== 'idle');
+}
+
+function startGame() {
+  if (game.getStatus() === 'idle') {
+    game.start();
+  } else {
+    game.restart();
+  }
+
+  scoreElement.textContent = '';
+
+  renderBoard();
+  updateStatus();
+}
+
+startButton.addEventListener('click', startGame);
+
+document.addEventListener('keydown', (keyEvent) => {
+  const moves = {
+    ArrowLeft: () => game.moveLeft(),
+    ArrowRight: () => game.moveRight(),
+    ArrowUp: () => game.moveUp(),
+    ArrowDown: () => game.moveDown(),
   };
-}
 
-function moveTileOnPage(row, column, tile, merge) {
-  const classes = Array.from(tile.classList);
-
-  classes.forEach((className) => {
-    if (className.startsWith('row') || className.startsWith('column')) {
-      tile.classList.remove(className);
-    }
-  });
-  tile.classList.add('row' + (row + 1), 'column' + (column + 1));
-
-  if (merge) {
-    let elements = tileContainer.querySelectorAll(
-      '.row' + (row + 1) + '.column' + (column + 1),
-    );
-
-    while (elements.length > 1) {
-      tileContainer.removeChild(elements[0]);
-
-      elements = tileContainer.querySelectorAll(
-        '.row' + (row + 1) + '.column' + (column + 1),
-      );
-    }
-
-    elements[0].className =
-      'tile ' +
-      'row' +
-      (row + 1) +
-      ' column' +
-      (column + 1) +
-      ' ' +
-      'value' +
-      board[row][column];
-    elements[0].innerHTML = board[row][column];
-    elements[0].classList.add('merged');
-
-    elements[0].addEventListener('animationend', () => {
-      tile.classList.remove('merged');
-    });
-  }
-}
-
-function addTileToPage(row, column, value) {
-  const tile = document.createElement('div');
-
-  tile.classList.add(
-    'tile',
-    'row' + (row + 1),
-    'column' + (column + 1),
-    'value' + value,
-  );
-
-  tile.innerHTML = value;
-  tileContainer.appendChild(tile);
-  tile.classList.add('merged');
-
-  tile.addEventListener('animationend', () => tile.classList.remove('merged'));
-}
-
-function addRandomTile() {
-  const emptyTiles = [];
-
-  for (let i = 0; i < board.length; i++) {
-    for (let j = 0; j < board[i].length; j++) {
-      if (board[i][j] === 0) {
-        emptyTiles.push([i, j]);
-      }
-    }
+  if (!moves[keyEvent.key]) {
+    return;
   }
 
-  const [randomI, randomJ] =
-    emptyTiles[Math.floor(Math.random() * emptyTiles.length)];
+  keyEvent.preventDefault();
 
-  board[randomI][randomJ] = Math.random() < 0.9 ? 2 : 4;
-
-  addTileToPage(randomI, randomJ, board[randomI][randomJ]);
-}
-
-function isGameOver() {
-  let emptySquare = false;
-
-  for (let i = 0; i < board.length; i++) {
-    for (let j = 0; j < board[i].length; j++) {
-      if (board[i][j] === 0) {
-        emptySquare = true;
-      }
-
-      if (board[i][j] === 2048 && !wonGame) {
-        return {
-          gameOver: true,
-          message: 'You won!',
-        };
-      }
-
-      if (j !== 3 && board[i][j] === board[i][j + 1]) {
-        emptySquare = true;
-      }
-
-      if (i !== 3 && board[i][j] === board[i + 1][j]) {
-        emptySquare = true;
-      }
-    }
+  if (game.getStatus() !== 'playing') {
+    return;
   }
 
-  if (emptySquare) {
-    return {
-      gameOver: false,
-      message: '',
-    };
-  }
+  moves[keyEvent.key]();
 
-  return {
-    gameOver: true,
-    message: 'Game over!',
-  };
-}
+  renderBoard();
+  updateScore();
+  updateStatus();
+});
 
-function createAlert(divText, buttons) {
-  const alertedElement = document.createElement('div');
-
-  alertElement.innerText = divText;
-
-  buttons.forEach((button) => {
-    const alertedButton = document.createElement('button');
-
-    alertedButton.innerText = button.text;
-    alertedButton.onclick = button.handler;
-
-    alertedElement.appendChild(alertedButton);
-  });
-
-  return alertedElement;
-}
-
-function showAlert(message) {
-  alertElement.innerHTML = '';
-
-  if (message === 'Game over!' || message === 'You won!') {
-    const buttons = [
-      {
-        text: message === 'Game over!' ? 'Try again' : 'New game',
-        handler: startNewGame,
-      },
-    ];
-
-    if (message === 'You won!') {
-      buttons.push({
-        text: 'Continue',
-        handler: continuePlaying,
-      });
-
-      wonGame = true;
-      window.removeEventListener('keydown', onDirectionKeyPress);
-    }
-
-    const alertDiv = createAlert(message, buttons);
-
-    alertElement.appendChild(alertDiv);
-  }
-
-  alertElement.style.display = 'flex';
-  alertElement.style.flexDirection = 'column';
-}
+renderBoard();
+updateStatus();

@@ -2,12 +2,10 @@ export class Game {
   constructor(initialState = null) {
     this.board = initialState
       ? JSON.parse(JSON.stringify(initialState))
-      : Array(4)
-        .fill(0)
-        .map(() => Array(4).fill(0));
+      : Array.from({ length: 4 }, () => Array(4).fill(0));
 
     this.score = 0;
-    this.status = 'idle'; // 'idle', 'playing', 'win', 'lose'
+    this.status = 'idle';
     this.hasWon = false;
   }
 
@@ -24,27 +22,25 @@ export class Game {
   }
 
   start() {
-    if (this.status === 'idle') {
-      this.status = 'playing';
-
-      this.board = Array(4)
-        .fill(0)
-        .map(() => Array(4).fill(0));
-      this.score = 0;
-      this.hasWon = false;
-      this.addRandomTile();
-      this.addRandomTile();
+    if (this.status !== 'idle') {
+      return;
     }
+
+    this.board = Array.from({ length: 4 }, () => Array(4).fill(0));
+    this.score = 0;
+    this.status = 'playing';
+    this.hasWon = false;
+
+    this.addRandomTile();
+    this.addRandomTile();
   }
 
   restart() {
-    this.status = 'playing';
-
-    this.board = Array(4)
-      .fill(0)
-      .map(() => Array(4).fill(0));
+    this.board = Array.from({ length: 4 }, () => Array(4).fill(0));
     this.score = 0;
+    this.status = 'playing';
     this.hasWon = false;
+
     this.addRandomTile();
     this.addRandomTile();
   }
@@ -52,176 +48,144 @@ export class Game {
   addRandomTile() {
     const emptyCells = [];
 
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        if (this.board[r][c] === 0) {
-          emptyCells.push({ r, c });
+    for (let emptyRow = 0; emptyRow < 4; emptyRow++) {
+      for (let emptyCol = 0; emptyCol < 4; emptyCol++) {
+        if (this.board[emptyRow][emptyCol] === 0) {
+          emptyCells.push([emptyRow, emptyCol]);
         }
       }
     }
 
-    if (emptyCells.length > 0) {
-      const { r, c } =
-        emptyCells[Math.floor(Math.random() * emptyCells.length)];
-
-      // 90% ймовірність для 2, 10% для 4
-      this.board[r][c] = Math.random() < 0.9 ? 2 : 4;
-    }
-  }
-
-  // Допоміжна функція для зсуву та злиття одного рядка вліво
-  slideLeft(row) {
-    const arr = row.filter((val) => val !== 0);
-    let points = 0;
-    const newRow = [];
-
-    for (let i = 0; i < arr.length; i++) {
-      if (i < arr.length - 1 && arr[i] === arr[i + 1]) {
-        const mergedVal = arr[i] * 2;
-
-        newRow.push(mergedVal);
-        points += mergedVal;
-        i++; // пропуск наступного, оскільки він злився
-
-        if (mergedVal === 2048 && !this.hasWon) {
-          this.hasWon = true;
-          this.status = 'win';
-        }
-      } else {
-        newRow.push(arr[i]);
-      }
-    }
-
-    while (newRow.length < 4) {
-      newRow.push(0);
-    }
-
-    return { newRow, points };
-  }
-
-  // Поворот матриці на 90 градусів за годинниковою стрілкою
-  rotateClockwise(matrix) {
-    const res = Array(4)
-      .fill(0)
-      .map(() => Array(4).fill(0));
-
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        res[c][3 - r] = matrix[r][c];
-      }
-    }
-
-    return res;
-  }
-
-  // Перевірка чи змінилося поле після руху
-  isBoardChanged(oldBoard, newBoard) {
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        if (oldBoard[r][c] !== newBoard[r][c]) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  // Загальна логіка виконання ходу
-  makeMove(moveFunction) {
-    if (this.status !== 'playing' && this.status !== 'win') {
+    if (emptyCells.length === 0) {
       return;
     }
 
-    const oldBoard = JSON.parse(JSON.stringify(this.board));
+    const randomIndex = Math.floor(Math.random() * emptyCells.length);
+    const [selectedRow, selectedCol] = emptyCells[randomIndex];
 
-    moveFunction.call(this);
+    this.board[selectedRow][selectedCol] = Math.random() < 0.9 ? 2 : 4;
+  }
 
-    if (this.isBoardChanged(oldBoard, this.board)) {
-      this.addRandomTile();
+  slideLeft(line) {
+    const numbers = line.filter((value) => value !== 0);
+    const result = [];
+    let points = 0;
 
-      if (this.checkGameOver()) {
-        this.status = 'lose';
+    for (let index = 0; index < numbers.length; index++) {
+      if (numbers[index] === numbers[index + 1]) {
+        const merged = numbers[index] * 2;
+
+        result.push(merged);
+        points += merged;
+        index++;
+      } else {
+        result.push(numbers[index]);
       }
+    }
+
+    while (result.length < 4) {
+      result.push(0);
+    }
+
+    return { row: result, points };
+  }
+
+  move(direction) {
+    if (this.status !== 'playing') {
+      return;
+    }
+
+    const oldBoard = JSON.stringify(this.board);
+    const oldBoardCopy = this.board.map((boardRow) => [...boardRow]);
+    let points = 0;
+
+    for (let index = 0; index < 4; index++) {
+      let line;
+
+      if (direction === 'left' || direction === 'right') {
+        line = [...oldBoardCopy[index]];
+      } else {
+        line = oldBoardCopy.map((boardRow) => boardRow[index]);
+      }
+
+      if (direction === 'right' || direction === 'down') {
+        line.reverse();
+      }
+
+      const result = this.slideLeft(line);
+
+      if (direction === 'right' || direction === 'down') {
+        result.row.reverse();
+      }
+
+      points += result.points;
+
+      for (let cellIndex = 0; cellIndex < 4; cellIndex++) {
+        if (direction === 'left' || direction === 'right') {
+          this.board[index][cellIndex] = result.row[cellIndex];
+        } else {
+          this.board[cellIndex][index] = result.row[cellIndex];
+        }
+      }
+    }
+
+    if (JSON.stringify(this.board) === oldBoard) {
+      return;
+    }
+
+    this.score += points;
+
+    if (!this.hasWon) {
+      for (const boardRow of this.board) {
+        if (boardRow.includes(2048)) {
+          this.status = 'win';
+          this.hasWon = true;
+          break;
+        }
+      }
+    }
+
+    this.addRandomTile();
+
+    if (this.status !== 'win' && this.checkGameOver()) {
+      this.status = 'lose';
     }
   }
 
   moveLeft() {
-    this.makeMove(() => {
-      for (let r = 0; r < 4; r++) {
-        const { newRow, points } = this.slideLeft(this.board[r]);
-
-        this.board[r] = newRow;
-        this.score += points;
-      }
-    });
+    this.move('left');
   }
 
   moveRight() {
-    this.makeMove(() => {
-      for (let r = 0; r < 4; r++) {
-        const reversed = [...this.board[r]].reverse();
-        const { newRow, points } = this.slideLeft(reversed);
-
-        this.board[r] = newRow.reverse();
-        this.score += points;
-      }
-    });
+    this.move('right');
   }
 
   moveUp() {
-    this.makeMove(() => {
-      const matrix = this.rotateClockwise(
-        this.rotateClockwise(this.rotateClockwise(this.board)),
-      );
-
-      for (let r = 0; r < 4; r++) {
-        const { newRow, points } = this.slideLeft(matrix[r]);
-
-        matrix[r] = newRow;
-        this.score += points;
-      }
-      this.board = this.rotateClockwise(matrix);
-    });
+    this.move('up');
   }
 
   moveDown() {
-    this.makeMove(() => {
-      const matrix = this.rotateClockwise(this.board);
-
-      for (let r = 0; r < 4; r++) {
-        const { newRow, points } = this.slideLeft(matrix[r]);
-
-        matrix[r] = newRow;
-        this.score += points;
-      }
-
-      this.board = this.rotateClockwise(
-        this.rotateClockwise(this.rotateClockwise(matrix)),
-      );
-    });
+    this.move('down');
   }
 
   checkGameOver() {
-    // Якщо є хоч одна нульова клітинка — гра не закінчена
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        if (this.board[r][c] === 0) {
-          return false;
-        }
-      }
-    }
-
-    // Перевірка чи є сусідні однакові елементи по горизонталі та вертикалі
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        const current = this.board[r][c];
-
-        if (c < 3 && current === this.board[r][c + 1]) {
+    for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
+      for (let colIndex = 0; colIndex < 4; colIndex++) {
+        if (this.board[rowIndex][colIndex] === 0) {
           return false;
         }
 
-        if (r < 3 && current === this.board[r + 1][c]) {
+        if (
+          colIndex < 3 &&
+          this.board[rowIndex][colIndex] === this.board[rowIndex][colIndex + 1]
+        ) {
+          return false;
+        }
+
+        if (
+          rowIndex < 3 &&
+          this.board[rowIndex][colIndex] === this.board[rowIndex + 1][colIndex]
+        ) {
           return false;
         }
       }
