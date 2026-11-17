@@ -31,8 +31,8 @@ export class Game {
     this.status = 'playing';
     this.hasWon = false;
 
-    this.addRandomTile();
-    this.addRandomTile();
+    this.#addRandomTile();
+    this.#addRandomTile();
   }
 
   restart() {
@@ -41,11 +41,11 @@ export class Game {
     this.status = 'playing';
     this.hasWon = false;
 
-    this.addRandomTile();
-    this.addRandomTile();
+    this.#addRandomTile();
+    this.#addRandomTile();
   }
 
-  addRandomTile() {
+  #addRandomTile() {
     const emptyCells = [];
 
     for (let emptyRow = 0; emptyRow < 4; emptyRow++) {
@@ -66,7 +66,7 @@ export class Game {
     this.board[selectedRow][selectedCol] = Math.random() < 0.9 ? 2 : 4;
   }
 
-  slideLeft(line) {
+  #slideLeft(line) {
     const numbers = line.filter((value) => value !== 0);
     const result = [];
     let points = 0;
@@ -90,7 +90,7 @@ export class Game {
     return { row: result, points };
   }
 
-  move(direction) {
+  #move(direction) {
     if (this.status !== 'playing') {
       return;
     }
@@ -112,7 +112,7 @@ export class Game {
         line.reverse();
       }
 
-      const result = this.slideLeft(line);
+      const result = this.#slideLeft(line);
 
       if (direction === 'right' || direction === 'down') {
         result.row.reverse();
@@ -145,30 +145,30 @@ export class Game {
       }
     }
 
-    this.addRandomTile();
+    this.#addRandomTile();
 
-    if (this.status !== 'win' && this.checkGameOver()) {
+    if (this.status !== 'win' && this.#checkGameOver()) {
       this.status = 'lose';
     }
   }
 
   moveLeft() {
-    this.move('left');
+    this.#move('left');
   }
 
   moveRight() {
-    this.move('right');
+    this.#move('right');
   }
 
   moveUp() {
-    this.move('up');
+    this.#move('up');
   }
 
   moveDown() {
-    this.move('down');
+    this.#move('down');
   }
 
-  checkGameOver() {
+  #checkGameOver() {
     for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
       for (let colIndex = 0; colIndex < 4; colIndex++) {
         if (this.board[rowIndex][colIndex] === 0) {

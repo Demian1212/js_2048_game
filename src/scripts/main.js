@@ -6,8 +6,11 @@ const game = new Game();
 
 const boardElement = document.getElementById('board');
 const scoreElement = document.querySelector('.game-score');
-const statusElement = document.getElementById('status-message');
 const startButton = document.getElementById('start-btn');
+
+const startMessage = document.querySelector('.message-start');
+const winMessage = document.querySelector('.message-win');
+const loseMessage = document.querySelector('.message-lose');
 
 function renderBoard() {
   const state = game.getState();
@@ -36,23 +39,16 @@ function updateScore() {
 }
 
 function updateStatus() {
-  const currentStatus = game.getStatus();
+  const gameStatus = game.getStatus();
 
-  if (currentStatus === 'idle') {
-    statusElement.className = 'message hidden';
-  } else if (currentStatus === 'playing') {
-    statusElement.className = 'message hidden';
-  } else if (currentStatus === 'win') {
-    statusElement.textContent = 'You win! Restart the game?';
-    statusElement.className = 'message message-win';
-  } else if (currentStatus === 'lose') {
-    statusElement.textContent = 'You lose! Restart the game?';
-    statusElement.className = 'message message-lose';
-  }
+  startMessage.classList.toggle('hidden', gameStatus !== 'idle');
+  winMessage.classList.toggle('hidden', gameStatus !== 'win');
+  loseMessage.classList.toggle('hidden', gameStatus !== 'lose');
 
-  startButton.textContent = currentStatus === 'idle' ? 'Start' : 'Restart';
-  startButton.classList.toggle('start', currentStatus === 'idle');
-  startButton.classList.toggle('restart', currentStatus !== 'idle');
+  startButton.textContent = gameStatus === 'idle' ? 'Start' : 'Restart';
+
+  startButton.classList.toggle('start', gameStatus === 'idle');
+  startButton.classList.toggle('restart', gameStatus !== 'idle');
 }
 
 function startGame() {
