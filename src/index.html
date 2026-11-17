@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -13,35 +13,39 @@
     />
   </head>
   <body>
-    <div class="game-container">
-      <header>
+    <main class="container">
+      <header class="game-header">
         <h1>2048</h1>
-        <div class="score-container">
-          Рахунок:
-          <span id="score">0</span>
+
+        <div class="info">
+          <span>Score</span>
+          <output class="game-score"></output>
         </div>
-        <!-- Додано клас button start, який шукають тести -->
+
         <button
           id="start-btn"
           class="button start"
+          type="button"
         >
           Start
         </button>
       </header>
 
-      <!-- Додано класи message та message-lose, які перевіряють тести -->
-      <div
-        id="status-message"
-        class="message message-lose hidden"
-      >
-        Натисніть "Start", щоб почати гру!
+      <div class="message-container">
+        <p class="message message-lose hidden">You lose! Restart the game?</p>
+
+        <p class="message message-win hidden">Winner! Congrats! You did it!</p>
+
+        <p class="message message-start">
+          Press "Start" to begin game. Good luck!
+        </p>
       </div>
 
       <div
         id="board"
         class="board"
       ></div>
-    </div>
+    </main>
 
     <script
       type="module"
